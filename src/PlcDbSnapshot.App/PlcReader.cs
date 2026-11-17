@@ -116,6 +116,8 @@ namespace PlcDbSnapshot.App
             res = Conn.Browse(out var vars);
             if (res != 0) throw new InvalidOperationException("태그 목록(Browse) 읽기 실패 (오류 코드 " + res + ").");
 
+            ResolveFbArrayPaths(vars);
+
             _varsByAccessKey = vars
                 .GroupBy(v => AccessKeyOf(v.AccessSequence), StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
@@ -141,6 +143,50 @@ namespace PlcDbSnapshot.App
                 b.TagCount = _varsByAccessKey.TryGetValue(b.AccessKey, out var list) ? list.Count : 0;
             }
             return blocks.Where(b => b.TagCount > 0).ToList();
+        }
+
+        /// <summary>How members of FB-instance arrays are addressed on this PLC ("idx.1.member" or "idx.member"), for diagnostics.</summary>
+        public string FbArrayPathInfo { get; private set; } = "";
+
+        /// <summary>
+        /// The driver patch marks the spot after an FB-array index with a placeholder because the exact path
+        /// is not documented. Try the candidates on a few real tags and keep the one the PLC accepts.
+        /// </summary>
+        private void ResolveFbArrayPaths(List<VarInfo> vars)
+        {
+            var marker = Browser.FbArrayPlaceholder;
+            var flagged = vars.Where(v => v.AccessSequence.IndexOf(marker, StringComparison.Ordinal) >= 0).ToList();
+            if (flagged.Count == 0) { FbArrayPathInfo = "FB 배열 없음"; return; }
+
+            // Sample tags spread over the list, so several different arrays are covered.
+            var step = Math.Max(1, flagged.Count / 12);
+            var samples = new List<VarInfo>();
+            for (var i = 0; i < flagged.Count && samples.Count < 12; i += step) samples.Add(flagged[i]);
+
+            var candidates = new[] { ".1", "" };
+            var best = candidates[0];
+            var bestGood = -1;
+            var report = new List<string>();
+            foreach (var cand in candidates)
+            {
+                var tags = new List<PlcTag>();
+                foreach (var v in samples)
+                {
+                    PlcTag t = null;
+                    try { t = PlcTags.TagFactory(v.Name, new ItemAddress(v.AccessSequence.Replace(marker, cand)), v.Softdatatype); }
+                    catch { /* unsupported type */ }
+                    if (t != null) tags.Add(t);
+                }
+                var good = 0;
+                if (tags.Count > 0 && Conn.ReadTags(tags) == 0)
+                {
+                    good = tags.Count(t => t.Quality == PlcTagQC.TAG_QUALITY_GOOD);
+                }
+                report.Add("'idx" + cand + ".member' " + good + "/" + tags.Count);
+                if (good > bestGood) { bestGood = good; best = cand; }
+            }
+            foreach (var v in flagged) v.AccessSequence = v.AccessSequence.Replace(marker, best);
+            FbArrayPathInfo = "FB 배열 태그 " + flagged.Count + "개, 경로 시험: " + string.Join(", ", report) + " -> 'idx" + best + ".member' 사용";
         }
 
         private static PlcBlock Area(string name, int rid)
@@ -246,6 +292,7 @@ namespace PlcDbSnapshot.App
                 }
                 progress?.Report((Math.Min(start + chunk.Count, vars.Count), vars.Count));
             }
+            if (LastReadDiagnostics.Count > 0) LastReadDiagnostics.Insert(0, "INFO\t" + FbArrayPathInfo);
             foreach (var key in failedBlocks)
             {
                 if (okSamples.TryGetValue(key, out var samples)) LastReadDiagnostics.AddRange(samples);

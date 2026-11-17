@@ -16,6 +16,7 @@ namespace PlcDbSnapshot.App
         private List<PlcBlock> _blocks = new List<PlcBlock>();
         private readonly HashSet<string> _checked = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool _busy;
+        private string _fbArrayInfo = "";
         private bool _suppressCheckEvents;
 
         // Compare state
@@ -293,6 +294,7 @@ namespace PlcDbSnapshot.App
                 _blocks = blocks;
                 _checked.Clear();
                 RefreshBlockList();
+                _fbArrayInfo = _plc.FbArrayPathInfo;
                 _status.Text = "접속됨. 블록 " + _blocks.Count + "개, 태그 " + _blocks.Sum(b => b.TagCount).ToString("N0", CultureInfo.InvariantCulture) + "개";
             });
         }
@@ -382,6 +384,10 @@ namespace PlcDbSnapshot.App
                 snap.Entries.AddRange(entries);
                 SnapshotCsv.Write(snap, path);
                 var errors = entries.Count(x => !x.IsOk);
+                if (_plc.LastReadDiagnostics.Count == 0 && _fbArrayInfo.Length > 0)
+                {
+                    snap.Metadata["FbArray"] = _fbArrayInfo;
+                }
                 if (_plc.LastReadDiagnostics.Count > 0)
                 {
                     // Troubleshooting aid: internal addresses of the tags that failed. Never needed for normal use.

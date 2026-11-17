@@ -24,6 +24,12 @@ namespace S7CommPlusDriver
         List<PObject> m_objs;
         List<VarInfo> m_varInfoList;
 
+        /// <summary>
+        /// LOCAL PATCH (not upstream): marker inside VarInfo.AccessSequence right after the index of an
+        /// FB-instance array element. Replace it with the real separator ("" or ".1") before using the sequence.
+        /// </summary>
+        public const string FbArrayPlaceholder = "@";
+
         public Browser()
         {
             m_Root = new VarRoot();
@@ -78,6 +84,13 @@ namespace S7CommPlusDriver
                 case eNodeType.Array:
                     names += node.Name;
                     accessIds += "." + String.Format("{0:X}", node.AccessId);
+                    break;
+                case eNodeType.FbArray:
+                    // LOCAL PATCH (not upstream): element of an array of FB instances. The access path between
+                    // the array index and the member LID is not known for sure, so a placeholder is emitted and
+                    // the caller replaces it after probing the PLC (see FbArrayPlaceholder).
+                    names += node.Name;
+                    accessIds += "." + String.Format("{0:X}", node.AccessId) + FbArrayPlaceholder;
                     break;
                 case eNodeType.StructArray:
                     names += node.Name;
@@ -158,6 +171,7 @@ namespace S7CommPlusDriver
                             OptOffset = node.Vte.OffsetInfoType.OptimizedAddress;
                             NonOptOffset = node.Vte.OffsetInfoType.NonoptimizedAddress;
                             break;
+                        case eNodeType.FbArray:
                         case eNodeType.StructArray:
                             OptOffset += node.ArrayAdrOffsetOpt;
                             NonOptOffset += node.ArrayAdrOffsetNonOpt;
@@ -387,6 +401,55 @@ namespace S7CommPlusDriver
                             id++;
                             n++;
                         } while (n <= ArrayElementCount);
+                        #endregion
+                    }
+                    else if (vte.OffsetInfoType is POffsetInfoType_FbArray fbArray)
+                    {
+                        #region LOCAL PATCH (not upstream): array of FB instances (one or more dimensions)
+                        // Upstream treats this like a single instance, which drops the array index: every element
+                        // gets the same name and an access path the PLC rejects.
+                        int dims = 0;
+                        for (int d = 0; d < 6; d++)
+                        {
+                            if (fbArray.MdimArrayElementCount[d] > 0) dims++;
+                        }
+                        uint total = fbArray.ArrayElementCount;
+                        if (dims == 0 && total > 0) dims = 1;
+                        uint[] idx = new uint[6] { 0, 0, 0, 0, 0, 0 };
+                        PObject fbType = null;
+                        foreach (var ob in m_objs)
+                        {
+                            if (ob.RelationId == fbArray.RelationId) { fbType = ob; break; }
+                        }
+                        for (uint n = 0; n < total && fbType != null; n++)
+                        {
+                            string aname = "[";
+                            for (int j = dims - 1; j >= 0; j--)
+                            {
+                                aname += (idx[j] + fbArray.MdimArrayLowerBounds[j]).ToString();
+                                aname += j > 0 ? "," : "]";
+                            }
+                            var arraynode = new Node
+                            {
+                                NodeType = eNodeType.FbArray,
+                                Name = aname,
+                                Softdatatype = vte.Softdatatype,
+                                AccessId = n,
+                                Vte = vte,
+                            };
+                            subnode.Childs.Add(arraynode);
+                            AddSubNodes(ref arraynode, fbType);
+
+                            idx[0]++;
+                            for (int dim = 0; dim < 5; dim++)
+                            {
+                                if (fbArray.MdimArrayElementCount[dim] > 0 && idx[dim] >= fbArray.MdimArrayElementCount[dim])
+                                {
+                                    idx[dim] = 0;
+                                    idx[dim + 1]++;
+                                }
+                            }
+                        }
                         #endregion
                     }
                     else if (vte.OffsetInfoType.HasRelation())
@@ -696,6 +759,7 @@ namespace S7CommPlusDriver
         Root,
         Var,
         Array,
-        StructArray
+        StructArray,
+        FbArray
     }
 }

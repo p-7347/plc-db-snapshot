@@ -9,6 +9,9 @@
   1. `RunThread()` catches exceptions so a socket error cannot terminate the host process.
   2. The TLS key-log callback is not registered by default and never throws across the native boundary
      (upstream wrote TLS session keys to `key_*.log` in the working directory).
+  3. `ClientApi/Browser.cs`: arrays of FB instances (`POffsetInfoType_FbArray`, a TODO upstream) are expanded
+     per element instead of being treated as one instance. The access sequence carries a placeholder after
+     the array index, which `PlcReader` resolves by probing the PLC.
 - The driver is a community, reverse-engineered implementation of the S7CommPlus protocol. It is not
   provided or supported by Siemens.
 
