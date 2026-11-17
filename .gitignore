@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+.vs/
+*.user
+*.suo
+TestResults/
+
+# Field data must never be committed (snapshots, compare results, TLS key logs)
+*.csv
+!tests/**/*.csv
+key_*.log
+Snapshots/
