@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- SDK-style build of the vendored driver in third_party/S7CommPlusDriver (LGPL-3.0).
+       Driver + Zlib.net sources are compiled into one assembly; the original sources are not modified here. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>S7CommPlusDriver</AssemblyName>
+    <RootNamespace>S7CommPlusDriver</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <!-- Native.cs picks the x64 OpenSSL DLL names (libssl-3-x64.dll) only when _WIN64 is defined. -->
+    <DefineConstants>$(DefineConstants);_WIN64</DefineConstants>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>$(NoWarn);CS0168;CS0219;CS0162;CS0414;CS0649;CS0169;CS1591</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup>
+    <DriverDir>..\..\third_party\S7CommPlusDriver\src\S7CommPlusDriver\</DriverDir>
+    <ZlibDir>..\..\third_party\S7CommPlusDriver\src\Zlib.net\</ZlibDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(DriverDir)**\*.cs" />
+    <Compile Include="$(ZlibDir)*.cs" Exclude="$(ZlibDir)AssemblyInfo.cs" />
+    <None Include="$(DriverDir)OpenSSL-dll-x64\*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+</Project>

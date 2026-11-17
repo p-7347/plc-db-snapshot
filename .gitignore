@@ -10,4 +10,5 @@ TestResults/
 *.csv
 !tests/**/*.csv
 key_*.log
+*.errors.txt
 Snapshots/

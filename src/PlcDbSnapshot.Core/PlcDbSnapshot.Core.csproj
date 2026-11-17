@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- No PLC or Windows dependency: snapshot file format and comparison only (unit-tested on any OS). -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>PlcDbSnapshot.Core</RootNamespace>
+  </PropertyGroup>
+</Project>
