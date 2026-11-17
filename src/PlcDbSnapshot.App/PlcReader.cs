@@ -71,6 +71,8 @@ namespace PlcDbSnapshot.App
                 case S7Consts.errTCPConnectionReset:
                 case S7Consts.errIsoConnect:
                     return "PLC가 응답하다 끊었습니다. S7-1500 FW V2.9 / S7-1200 FW V4.3 이상인지, 다른 접속이 너무 많지 않은지 확인하세요.";
+                case S7Consts.errOpenSSL:
+                    return "PLC까지는 닿았지만 TLS(OpenSSL) 시작에 실패했습니다. exe 옆에 libssl-3-x64.dll, libcrypto-3-x64.dll이 있는지 확인하세요.";
                 case S7Consts.errCliNeedPassword:
                 case S7Consts.errCliInvalidPassword:
                 case S7Consts.errCliAccessDenied:
