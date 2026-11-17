@@ -220,7 +220,7 @@ namespace PlcDbSnapshot.App
                                 tagVar[i].Name,
                                 TypeName(tagVar[i].Softdatatype),
                                 ok ? ValueText(t) : "",
-                                ok ? SnapshotEntry.StatusOk : "품질 불량 (오류 " + t.LastReadError + ")"));
+                                ok ? SnapshotEntry.StatusOk : "읽기 오류 0x" + t.LastReadError.ToString("X", CultureInfo.InvariantCulture)));
                         }
                     }
                 }
@@ -235,7 +235,22 @@ namespace PlcDbSnapshot.App
             var s = tag.ToString() ?? "";
             var sep = s.IndexOf(": ", StringComparison.Ordinal);
             if (sep >= 0 && sep <= 4) s = s.Substring(sep + 2);
-            return s.Replace("\r", "\\r").Replace("\n", "\\n");
+            return EscapeControl(s);
+        }
+
+        /// <summary>Control characters (NUL in empty Char/String, CR, LF...) would break the CSV; write them as \xNN.</summary>
+        private static string EscapeControl(string s)
+        {
+            var clean = true;
+            foreach (var c in s) { if (c < ' ' || c == '\u007f') { clean = false; break; } }
+            if (clean) return s;
+            var sb = new System.Text.StringBuilder(s.Length + 8);
+            foreach (var c in s)
+            {
+                if (c < ' ' || c == '\u007f') sb.Append("\\x").Append(((int)c).ToString("X2", CultureInfo.InvariantCulture));
+                else sb.Append(c);
+            }
+            return sb.ToString();
         }
 
         private static string TypeName(uint softdatatype)
