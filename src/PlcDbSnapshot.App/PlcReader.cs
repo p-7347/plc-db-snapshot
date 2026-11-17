@@ -52,10 +52,32 @@ namespace PlcDbSnapshot.App
             var res = conn.Connect(address, password ?? "", "");
             if (res != 0)
             {
-                throw new InvalidOperationException("PLC 접속 실패 (" + address + ", 오류 코드 " + res + "). IP, 랜선, PLC 접근 보호 비밀번호를 확인하세요.");
+                throw new InvalidOperationException("PLC 접속 실패 (" + address + ", 오류 코드 0x" + res.ToString("X", CultureInfo.InvariantCulture) + ").\n" + ConnectHint(res));
             }
             _conn = conn;
             Address = address;
+        }
+
+        private static string ConnectHint(int code)
+        {
+            switch (code)
+            {
+                case S7Consts.errTCPSocketCreation:
+                case S7Consts.errTCPConnectionTimeout:
+                case S7Consts.errTCPConnectionFailed:
+                case S7Consts.errTCPUnreachableHost:
+                    return "PLC에 네트워크로 닿지 않습니다. IP 주소, 랜선, 노트북 IP 대역(같은 서브넷인지), ping 응답을 확인하세요.";
+                case S7Consts.errTCPReceiveTimeout:
+                case S7Consts.errTCPConnectionReset:
+                case S7Consts.errIsoConnect:
+                    return "PLC가 응답하다 끊었습니다. S7-1500 FW V2.9 / S7-1200 FW V4.3 이상인지, 다른 접속이 너무 많지 않은지 확인하세요.";
+                case S7Consts.errCliNeedPassword:
+                case S7Consts.errCliInvalidPassword:
+                case S7Consts.errCliAccessDenied:
+                    return "PLC 접근 보호 비밀번호가 필요하거나 틀렸습니다.";
+                default:
+                    return "PLC 접근 보호 비밀번호, CPU 펌웨어 버전(S7-1500 V2.9 / S7-1200 V4.3 이상)을 확인하세요.";
+            }
         }
 
         public void Disconnect()
