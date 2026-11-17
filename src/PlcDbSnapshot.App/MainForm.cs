@@ -382,12 +382,9 @@ namespace PlcDbSnapshot.App
                 var snap = NewSnapshot(started, note, "PLC");
                 snap.Metadata[Snapshot.KeyBlocks] = string.Join(";", selected.Select(b => b.Name));
                 snap.Entries.AddRange(entries);
+                if (_fbArrayInfo.Length > 0) snap.Metadata["FbArray"] = _fbArrayInfo;
                 SnapshotCsv.Write(snap, path);
                 var errors = entries.Count(x => !x.IsOk);
-                if (_plc.LastReadDiagnostics.Count == 0 && _fbArrayInfo.Length > 0)
-                {
-                    snap.Metadata["FbArray"] = _fbArrayInfo;
-                }
                 if (_plc.LastReadDiagnostics.Count > 0)
                 {
                     // Troubleshooting aid: internal addresses of the tags that failed. Never needed for normal use.
