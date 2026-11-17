@@ -382,6 +382,11 @@ namespace PlcDbSnapshot.App
                 snap.Entries.AddRange(entries);
                 SnapshotCsv.Write(snap, path);
                 var errors = entries.Count(x => !x.IsOk);
+                if (_plc.LastReadDiagnostics.Count > 0)
+                {
+                    // Troubleshooting aid: internal addresses of the tags that failed. Never needed for normal use.
+                    File.WriteAllLines(Path.ChangeExtension(path, ".errors.txt"), _plc.LastReadDiagnostics);
+                }
                 _status.Text = "저장 완료: " + Path.GetFileName(path) + " (태그 " + entries.Count.ToString("N0", CultureInfo.InvariantCulture) + "개" + (errors > 0 ? ", 읽기 오류 " + errors + "개" : "") + ")";
             });
         }

@@ -42,6 +42,12 @@ namespace PlcDbSnapshot.App
         private Dictionary<string, List<VarInfo>> _varsByAccessKey;
         private Dictionary<string, VarInfo> _varsByName;
 
+        /// <summary>
+        /// Filled by the last read: one line per failed tag (name, type, internal access sequence, error),
+        /// plus a few successfully read tags of the same block for comparison. For troubleshooting only.
+        /// </summary>
+        public List<string> LastReadDiagnostics { get; } = new List<string>();
+
         public string Address { get; private set; } = "";
         public bool IsConnected => _conn != null;
 
@@ -178,6 +184,9 @@ namespace PlcDbSnapshot.App
         {
             var result = new List<SnapshotEntry>(vars.Count);
             var consecutiveFailures = 0;
+            LastReadDiagnostics.Clear();
+            var okSamples = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var failedBlocks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (var start = 0; start < vars.Count; start += ReadChunk)
             {
                 var chunk = vars.Skip(start).Take(ReadChunk).ToList();
@@ -216,6 +225,17 @@ namespace PlcDbSnapshot.App
                         {
                             var t = tags[i];
                             var ok = t.Quality == PlcTagQC.TAG_QUALITY_GOOD;
+                            var key = AccessKeyOf(tagVar[i].AccessSequence);
+                            if (!ok)
+                            {
+                                failedBlocks.Add(key);
+                                LastReadDiagnostics.Add("FAIL\t" + DiagLine(tagVar[i]) + "\t0x" + t.LastReadError.ToString("X", CultureInfo.InvariantCulture));
+                            }
+                            else
+                            {
+                                if (!okSamples.TryGetValue(key, out var samples)) okSamples[key] = samples = new List<string>();
+                                if (samples.Count < 40) samples.Add("OK\t" + DiagLine(tagVar[i]));
+                            }
                             result.Add(new SnapshotEntry(
                                 tagVar[i].Name,
                                 TypeName(tagVar[i].Softdatatype),
@@ -226,7 +246,17 @@ namespace PlcDbSnapshot.App
                 }
                 progress?.Report((Math.Min(start + chunk.Count, vars.Count), vars.Count));
             }
+            foreach (var key in failedBlocks)
+            {
+                if (okSamples.TryGetValue(key, out var samples)) LastReadDiagnostics.AddRange(samples);
+            }
             return result;
+        }
+
+        private static string DiagLine(VarInfo v)
+        {
+            return v.Name + "\t" + TypeName(v.Softdatatype) + "\t" + v.AccessSequence
+                + "\topt=" + v.OptAddress + "." + v.OptBitoffset + "\tnonopt=" + v.NonOptAddress + "." + v.NonOptBitoffset;
         }
 
         /// <summary>The driver formats values as "QQ: value" (QQ = quality); keep only the value, on one line.</summary>

@@ -6,7 +6,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>PlcDbSnapshot</AssemblyName>
     <RootNamespace>PlcDbSnapshot.App</RootNamespace>
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
